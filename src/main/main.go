@@ -3,48 +3,49 @@ package main
 import (
 	"api-autoMakeHtml/src/chat"
 	"fmt"
-	"os"
+	"net/http"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/gin-gonic/gin"
 )
 
+type RequestBody struct {
+	Message string `json:"message"`
+}
+
 func main() {
-	// コマンドライン引数から質問テキストを取得する
-	if len(os.Args) < 2 {
-		panic("too few arguments")
-	}
-	content := os.Args[1]
+	engine := gin.Default()
+	engine.POST("/submit", func(c *gin.Context) {
+		// リクエストをバインドする
+		var req RequestBody
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+		}
+		// メッセージが空の場合はエラーを返す
+		if req.Message == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "message is empty",
+			})
+		}
 
-	err := godotenv.Load(".env")
-	
-	// もし err がnilではないなら、"読み込み出来ませんでした"が出力されます。
-	if err != nil {
-		fmt.Printf("読み込み出来ませんでした: %v", err)
-	} 
-	// 環境変数からAPIキーを取得する
-	secret:= os.Getenv("OPEN_AI_SECRET")
+		timeout := 15 * time.Second
+		maxTokens := 500
+		modelID := "gpt-4o"
 
-	// リソース節約のためにタイムアウトを設定する
-	timeout := 15 * time.Second
+		chatCompletion := chat.NewChatCompletions(modelID, maxTokens, timeout)
+		res, err := chatCompletion.AskOneQuestion(req.Message)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+		}
+		fmt.Printf(res.Choices[0].Message.Content)
 
-	// トークン節約のために応答の最大トークンを設定する
-	maxTokens := 500
-
-	// チャットに使用するモデルのID
-	// modelID := "gpt-3.5-turbo"
-	modelID := "gpt-4o"
-
-	c := chat.NewChatCompletions(modelID, secret, maxTokens, timeout)
-	res, err := c.AskOneQuestion(content)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	fmt.Printf("In %d / Out %d / Total %d tokens\n", res.Usage.PromptTokens, res.Usage.CompletionTokens, res.Usage.TotalTokens)
-	for _, v := range res.Choices {
-		fmt.Printf("[%s]: %s\n", v.Message.Role, v.Message.Content)
-	}
-
+		c.JSON(http.StatusOK, gin.H{
+			"message": res.Choices[0].Message.Content,
+		})
+	})
+	engine.Run(":8080")
 }

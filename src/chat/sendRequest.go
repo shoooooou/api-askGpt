@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
 	"time"
 
 	"io"
 	"net/http"
+
+	"github.com/joho/godotenv"
 )
 
 type ChatCompletions struct {
@@ -24,11 +27,16 @@ type ChatCompletions struct {
 	secret string
 }
 
-func NewChatCompletions(model string, secret string, maxTokens int, timeout time.Duration) *ChatCompletions {
+func NewChatCompletions(model string, maxTokens int, timeout time.Duration) *ChatCompletions {
+	err := godotenv.Load(".env")
+	// 環境変数が読み込めない場合はエラーを返す
+	if err != nil || os.Getenv("OPEN_AI_SECRET") == "" {
+		panic("envFile not found or OPEN_AI_SECRET is empty")
+	}
 	return &ChatCompletions{
 		maxTokens: maxTokens,
 		model:     model,
-		secret:    secret,
+		secret:    os.Getenv("OPEN_AI_SECRET"),
 		timeout:   timeout,
 	}
 }

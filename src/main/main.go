@@ -2,6 +2,7 @@ package main
 
 import (
 	"api-autoMakeHtml/src/chat"
+	"api-autoMakeHtml/src/icon"
 	"fmt"
 	"net/http"
 	"time"
@@ -9,15 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type RequestBody struct {
+type TextRequest struct {
 	Message string `json:"message"`
+}
+type ImageRequest struct {
+	Prompt string `json:"prompt" binding:"required"`
+	Size   string `json:"size" binding:"required"`
 }
 
 func main() {
 	engine := gin.Default()
-	engine.POST("/askgpt/submit", func(c *gin.Context) {
+	engine.POST("/askgpt/text/", func(c *gin.Context) {
 		// リクエストをバインドする
-		var req RequestBody
+		var req TextRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
@@ -47,5 +52,22 @@ func main() {
 			"message": res.Choices[0].Message.Content,
 		})
 	})
+
+	engine.POST("/askgpt/icon/", func(c *gin.Context) {
+		var req ImageRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		imageURL, err := icon.GenerateImage(req.Prompt, req.Size)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"image_url": imageURL})
+	})
+
 	engine.Run(":8080")
 }

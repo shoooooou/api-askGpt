@@ -15,7 +15,7 @@ type RequestBody struct {
 
 func main() {
 	engine := gin.Default()
-	engine.POST("/submit", func(c *gin.Context) {
+	engine.POST("/askgpt/submit", func(c *gin.Context) {
 		// リクエストをバインドする
 		var req RequestBody
 		if err := c.ShouldBindJSON(&req); err != nil {
